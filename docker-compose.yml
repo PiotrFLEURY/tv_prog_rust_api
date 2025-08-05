@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      CONNECTION_STRING: "postgres://postgres:postgres@db:5432/postgres"
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<!-- Generated with XML TV Fr v2.0.0 -->
+<tv source-info-url="https://github.com/racacax/XML-TV-Fr" source-info-name="XML TV Fr" generator-info-name="XML TV Fr" generator-info-url="https://github.com/racacax/XML-TV-Fr">
+    <channel id="TF1.fr">
+        <display-name>TF1</display-name>
+        <icon src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS4u3EMdVyFA2uqIpbnwKBT1GRW9U-mA2jyCz28L2ieGx4vB9bKhpInhHCIqmk&amp;amp;s"/>
+    </channel>
+    <!-- Orange -->
+    <programme start="20211227234500 +0100" stop="20211228004500 +0100" channel="TF1.fr">
+        <title lang="fr">Joséphine, ange gardien</title>
+        <sub-title lang="fr">Haute couture</sub-title>
+        <desc lang="fr">Une créatrice de mode, passionnée par son métier, refuse de se faire soigner. Joséphine va tout mettre en oeuvre pour venir en aide à la jeune femme.</desc>
+        <category lang="fr">Série</category>
+        <category lang="fr">Série Passion</category>
+        <icon src="https://proxymedia.woopic.com/340/p/169_EMI_23486537.jpg"/>
+        <episode-num system="xmltv_ns">19.4.</episode-num>
+        <rating system="CSA">
+            <value>Tout public</value>
+        </rating>
+    </programme>
+    <programme start="20211228004500 +0100" stop="20211228013000 +0100" channel="TF1.fr">
+        <title lang="fr">New York Unité Spéciale</title>
+        <sub-title lang="fr">Une mort prématurée</sub-title>
+        <desc lang="fr">Deux kayakistes découvrent le corps sans vie d'un nourrisson dans un réfrigérateur : l'enquête s'oriente très rapidement vers deux adolescentes.</desc>
+        <category lang="fr">Série</category>
+        <category lang="fr">Série Suspense</category>
+        <icon src="https://proxymedia.woopic.com/340/p/169_EMI_10397668.jpg"/>
+        <episode-num system="xmltv_ns">3.13.</episode-num>
+        <rating system="CSA">
+            <value>-10</value>
+            <icon src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Moins10.svg/200px-Moins10.svg.png"/>
+        </rating>
+    </programme>
+</tv>
