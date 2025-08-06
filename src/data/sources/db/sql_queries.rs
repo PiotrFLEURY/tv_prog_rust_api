@@ -38,6 +38,7 @@ pub const DELETE_PROGRAMS_QUERY: &str = "DELETE FROM programs";
 ///
 pub const FIND_PROGRAMS_BY_CHANNEL_ID_QUERY: &str = "\
 SELECT * FROM programs WHERE channel_id = $1 \
+AND start_time >= NOW() \
 ORDER BY start_time ASC \
 LIMIT 100
 ";
@@ -57,8 +58,8 @@ pub const FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY: &str = "\
 SELECT * FROM programs
 WHERE channel_id = $1
 AND start_time >= $2
--- duration is at least 1 hours
-AND (end_time - start_time) >= INTERVAL '1 hour'
+-- duration is at least 30 minutes
+AND (end_time - start_time) >= INTERVAL '30 minute'
 ORDER BY start_time ASC
 LIMIT 1
 ";

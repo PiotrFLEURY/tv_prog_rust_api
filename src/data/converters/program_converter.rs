@@ -57,7 +57,7 @@ pub fn model_to_entity(model: ProgramModel) -> ProgramEntity {
         sub_title: model.sub_title,
         description: model.description.content,
         categories: Option::from(categories.split(",").map(|c| c.trim().to_string()).collect::<Vec<String>>()),
-        icon: Option::from(icon_url),
+        icon_url: Option::from(icon_url),
         episode_num,
         rating: Option::from(
             Rating {
@@ -83,7 +83,7 @@ pub fn row_to_entity(row: &postgres::Row) -> ProgramEntity {
         sub_title: row.get(5),
         description: row.get(6),
         categories,
-        icon: row.get(8),
+        icon_url: row.get(8),
         episode_num: row.get(9),
         rating: Some(Rating {
             system: row.get(10),

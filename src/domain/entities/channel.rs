@@ -13,5 +13,6 @@ pub struct Channel {
     pub name: String,
 
     /// The URL of the channel's icon
+    #[serde(rename = "iconUrl")]
     pub icon_url: String,
 }

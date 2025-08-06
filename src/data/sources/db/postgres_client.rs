@@ -120,7 +120,7 @@ VALUES ";
                     escape_string(program.sub_title.as_deref().unwrap_or("")),
                     escape_string(program.description.as_deref().unwrap_or("")),
                     escape_string(program.categories.as_deref().unwrap_or(&vec![]).join(",").as_str()),
-                    escape_string(program.icon.as_deref().unwrap_or("")),
+                    escape_string(program.icon_url.as_deref().unwrap_or("")),
                     escape_string(program.episode_num.as_deref().unwrap_or("")),
                     escape_string(rating.system.as_ref().unwrap_or(&"".to_string()).as_str()),
                     escape_string(rating.value.as_ref().unwrap_or(&"".to_string()).as_str()),

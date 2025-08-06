@@ -33,7 +33,8 @@ pub struct Program {
     pub categories: Option<Vec<String>>,
 
     /// The URL of the program's icon
-    pub icon: Option<String>,
+    #[serde(rename = "iconUrl")]
+    pub icon_url: Option<String>,
 
     /// The episode number of the program
     #[serde(rename = "episodeNum")]
