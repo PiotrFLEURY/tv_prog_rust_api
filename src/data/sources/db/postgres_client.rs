@@ -1,6 +1,6 @@
 use crate::data::converters::program_converter;
 use crate::data::sources::db::schema::SCHEMA_CREATION_QUERY;
-use crate::data::sources::db::sql_queries::{DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY, FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY, SELECT_CHANNELS_QUERY};
+use crate::data::sources::db::sql_queries::{DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY, FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY, SELECT_ALL_CHANNELS_QUERY, SELECT_CHANNELS_QUERY};
 use crate::domain::entities::channel::Channel;
 use crate::domain::entities::program::Program;
 use chrono::Timelike;
@@ -66,6 +66,25 @@ pub fn save_channel_packages(channels: Vec<Channel>, package: String) {
     })
         .join()
         .unwrap();
+}
+
+
+pub(crate) fn find_all_channels() -> Vec<Channel> {
+    std::thread::spawn(move || {
+        let mut channels = Vec::new();
+        for row in client().query(SELECT_ALL_CHANNELS_QUERY, &[]).unwrap() {
+            let channel = Channel {
+                id: row.get(0),
+                channel_id: row.get(1),
+                name: row.get(2),
+                icon_url: row.get(3),
+            };
+            channels.push(channel);
+        }
+        channels
+    })
+        .join()
+        .unwrap()
 }
 
 pub(crate) fn find_channels_by_package(package: String) -> Vec<Channel> {

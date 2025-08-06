@@ -2,8 +2,13 @@ use std::io::{Cursor, Read};
 use zip::ZipArchive;
 use crate::data::models::xmltv::XmlTv;
 
+pub const XMLTV_URL_ALL: &str = "https://xmltvfr.fr/xmltv/xmltv.zip";
 pub const XMLTV_TNT_URL: &str = "https://xmltvfr.fr/xmltv/xmltv_tnt.zip";
 pub const XMLTV_FR_URL: &str = "https://xmltvfr.fr/xmltv/xmltv_fr.zip";
+
+pub async fn fetch_xmltv_all() -> XmlTv {
+    fetch_xmltv(XMLTV_URL_ALL).await
+}
 
 pub async fn fetch_xmltv_tnt() -> XmlTv {
     fetch_xmltv(XMLTV_TNT_URL).await

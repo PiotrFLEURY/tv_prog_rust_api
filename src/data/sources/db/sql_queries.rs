@@ -1,6 +1,12 @@
 ///
 /// Get all the channel items from the database
 ///
+pub const SELECT_ALL_CHANNELS_QUERY: &str = "\
+SELECT channels.id, channels.channel_id, channels.display_name, channels.icon \
+FROM channels \
+JOIN channel_packages ON channels.channel_id = channel_packages.channel_id \
+";
+
 pub const SELECT_CHANNELS_QUERY: &str = "\
 SELECT channels.id, channels.channel_id, channels.display_name, channels.icon \
 FROM channels \
