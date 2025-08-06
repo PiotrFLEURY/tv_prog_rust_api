@@ -13,4 +13,4 @@ jobs:
         run: |
           docker login --username PiotrFLEURY --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
           docker build -t ghcr.io/piotrfleury/tv_prog_rust_api:latest .
-          docker push ghcr.io/piotrfleury/tv_prog_rust_api:latestname: docker.yml
+          docker push ghcr.io/piotrfleury/tv_prog_rust_api:latest
