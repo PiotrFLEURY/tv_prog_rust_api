@@ -1,0 +1,16 @@
+on:
+  push:
+    branches:
+      - main
+
+name: Docker Build and Push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: |
+          docker login --username PiotrFLEURY --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
+          docker build -t ghcr.io/piotrfleury/tv_prog_rust_api:latest .
+          docker push ghcr.io/piotrfleury/tv_prog_rust_api:latestname: docker.yml
