@@ -34,14 +34,6 @@ pub const DELETE_PACKAGES_QUERY: &str = "DELETE FROM channel_packages";
 pub const DELETE_PROGRAMS_QUERY: &str = "DELETE FROM programs";
 
 ///
-/// Insert a new program into the database
-///
-pub const INSERT_PROGRAM_QUERY: &str = "INSERT INTO PROGRAMS (\
-CHANNEL_ID, START_TIME, END_TIME, TITLE, SUBTITLE, DESCRIPTION, CATEGORIES, \
-ICON, EPISODE_NUM, RATING_SYSTEM, RATING_VALUE, RATING_ICON) \
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)";
-
-///
 /// Get all programs for a specific channel by channel_id
 ///
 pub const FIND_PROGRAMS_BY_CHANNEL_ID_QUERY: &str = "\

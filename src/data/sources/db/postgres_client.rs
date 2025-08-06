@@ -1,6 +1,6 @@
 use crate::data::converters::program_converter;
 use crate::data::sources::db::schema::SCHEMA_CREATION_QUERY;
-use crate::data::sources::db::sql_queries::{DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY, FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY, INSERT_PROGRAM_QUERY, SELECT_CHANNELS_QUERY};
+use crate::data::sources::db::sql_queries::{DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY, FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY, SELECT_CHANNELS_QUERY};
 use crate::domain::entities::channel::Channel;
 use crate::domain::entities::program::Program;
 use chrono::Timelike;
@@ -91,39 +91,6 @@ pub fn drop_programs() {
     std::thread::spawn(move || {
         let mut client = client();
         client.execute(DELETE_PROGRAMS_QUERY, &[]).unwrap();
-    })
-    .join()
-    .unwrap();
-}
-
-pub fn save_programs(programs: Vec<Program>) {
-    println!("Saving {} programs to the database...", programs.len());
-    std::thread::spawn(move || {
-        let mut client = client();
-        for i in 0..programs.len() {
-            let program = &programs[i];
-            let rating = &program.rating.as_ref().unwrap();
-            println!("Inserting program {} of {}", i + 1, programs.len());
-            client
-                .execute(
-                    INSERT_PROGRAM_QUERY,
-                    &[
-                        &program.channel_id,
-                        &program.start_time.naive_utc(),
-                        &program.end_time.naive_utc(),
-                        &program.title,
-                        &program.sub_title,
-                        &program.description,
-                        &program.categories,
-                        &program.icon,
-                        &program.episode_num,
-                        &rating.system,
-                        &rating.value,
-                        &rating.icon,
-                    ],
-                )
-                .unwrap();
-        }
     })
     .join()
     .unwrap();

@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 use crate::data::repositories::program_repository;
 use crate::domain::entities::program::Program;
+use crate::presentation::dtos::page::Page;
 use axum::extract::Query;
 use axum::Json;
 
-pub async fn get_programs_by_channel_id(Query(params): Query<HashMap<String, String>>) -> Json<Vec<Program>> {
+pub async fn get_programs_by_channel_id(Query(params): Query<HashMap<String, String>>) -> Json<Page<Program>> {
     let channel_id = match params.get("channelId") {
         Some(id) => id.clone(),
-        None => return Json(vec![]), // Return an empty vector if no channel_id is provided
+        None => return Json(Page{
+            content: vec![]
+        }), 
     };
     Json(program_repository::get_programs_by_channel_id(channel_id))
 }
