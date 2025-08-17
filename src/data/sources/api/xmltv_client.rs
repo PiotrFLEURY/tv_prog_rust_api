@@ -1,24 +1,42 @@
+use crate::data::models::xmltv::XmlTv;
+use dotenv::var;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
-use crate::data::models::xmltv::XmlTv;
 
-pub const XMLTV_URL_ALL: &str = "https://xmltvfr.fr/xmltv/xmltv.zip";
-pub const XMLTV_TNT_URL: &str = "https://xmltvfr.fr/xmltv/xmltv_tnt.zip";
-pub const XMLTV_FR_URL: &str = "https://xmltvfr.fr/xmltv/xmltv_fr.zip";
+pub fn base_url() -> String {
+    let base_url =
+        var("XMLTV_BASE_URL").expect("XMLTV_BASE_URL must be set in the environment variables");
+    if (base_url.ends_with("/")) {
+        return base_url;
+    }
+    return base_url + "/";
+}
+
+pub fn xmltv_url_all() -> String {
+    format!("{}xmltv.zip", base_url())
+}
+
+pub fn xmltv_url_tnt() -> String {
+    format!("{}xmltv_tnt.zip", base_url())
+}
+
+pub fn xmltv_url_fr() -> String {
+    format!("{}xmltv_fr.zip", base_url())
+}
 
 pub async fn fetch_xmltv_all() -> XmlTv {
-    fetch_xmltv(XMLTV_URL_ALL).await
+    fetch_xmltv(xmltv_url_all()).await
 }
 
 pub async fn fetch_xmltv_tnt() -> XmlTv {
-    fetch_xmltv(XMLTV_TNT_URL).await
+    fetch_xmltv(xmltv_url_tnt()).await
 }
 
 pub async fn fetch_xmltv_fr() -> XmlTv {
-    fetch_xmltv(XMLTV_FR_URL).await
+    fetch_xmltv(xmltv_url_fr()).await
 }
 
-pub async fn fetch_xmltv(request_url: &str) -> XmlTv {
+pub async fn fetch_xmltv(request_url: String) -> XmlTv {
     println!("Fetching XML TV from {}", request_url);
     let response = reqwest::get(request_url).await.unwrap();
 
@@ -44,6 +62,8 @@ pub async fn fetch_xmltv(request_url: &str) -> XmlTv {
             }
         }
 
-        panic!("XMLTV data fetched successfully, but this is a placeholder function. Please implement the actual parsing logic.");
+        panic!(
+            "XMLTV data fetched successfully, but this is a placeholder function. Please implement the actual parsing logic."
+        );
     }
 }

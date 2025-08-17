@@ -42,6 +42,7 @@ pub fn save_channels(channels: Vec<Channel>) {
     std::thread::spawn(move || {
         let mut client = client();
         for channel in &channels {
+            println!("Inserting channel: {}", channel.channel_id);
             client
                 .execute(
                     INSERT_CHANNEL_QUERY,

@@ -68,7 +68,12 @@ pub async fn init_xml_tv_data() {
                 program_converter::model_to_entity(p)
             })
             .collect::<Vec<Program>>();
-        postgres_client::bulk_insert_programs(unknown_fr_programs);
+        if(unknown_fr_programs.len()>0) {
+            println!("Found {} unknown FR channels", unknown_fr_programs.len());
+            postgres_client::bulk_insert_programs(unknown_fr_programs);
+        } else {
+            println!("No unknown FR channels found");
+        }
         println!("FR channels saved to the database.");
 
         let tnt = xmltv_client::fetch_xmltv_tnt().await;
