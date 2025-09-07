@@ -211,3 +211,24 @@ pub(crate) fn find_tonight_program_by_channel_id(channel_id: String) -> Program 
     .join()
     .unwrap()
 }
+
+pub(crate) fn search_programs(query_string: String) -> Vec<Program> {
+    std::thread::spawn(move || {
+        let mut programs = Vec::new();
+        let mut client = client();
+        let query = format!("%{}%", query_string);
+        let rows = client
+            .query(
+                "SELECT * FROM PROGRAMS WHERE TITLE ILIKE $1 OR SUBTITLE ILIKE $1 OR DESCRIPTION ILIKE $1",
+                &[&query],
+            )
+            .unwrap();
+        for row in rows {
+            let program = program_converter::row_to_entity(&row);
+            programs.push(program);
+        }
+        programs
+    })
+    .join()
+    .unwrap()
+}

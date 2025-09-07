@@ -32,3 +32,11 @@ pub async fn get_tonight_program_by_channel_id(Query(params): Query<HashMap<Stri
     let program = program_repository::get_tonight_program_by_channel_id(channel_id);
     Json(Some(program))
 }
+
+pub async fn search_programs(Json(payload): Json<HashMap<String, String>>) -> Json<Vec<Program>> {
+    let query = match payload.get("query") {
+        Some(q) => q.clone(),
+        None => return Json(vec![]),
+    };
+    Json(program_repository::search_programs(query))
+}
