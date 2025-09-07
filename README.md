@@ -16,11 +16,4 @@ The goal is to reduce the memory footprint while maintaining functionality.
 - [x] Docker support for easy deployment
 - [x] Implement the API endpoints (channels, programs, etc.)
 - [x] Fix Program API object (rating, categories, etc...)
-
-## Still to Do
-
-- [ ] Add unit tests for the API
-- [ ] CI/CD pipeline for automated testing and deployment
-- [ ] Test with mobile app (Android, iOS)
-- [ ] Implement error handling
-- [ ] Add logging
+- [x] CI/CD pipeline for automated testing and deployment
