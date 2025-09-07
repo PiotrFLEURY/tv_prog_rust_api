@@ -6,7 +6,7 @@ use zip::ZipArchive;
 pub fn base_url() -> String {
     let base_url =
         var("XMLTV_BASE_URL").expect("XMLTV_BASE_URL must be set in the environment variables");
-    if (base_url.ends_with("/")) {
+    if base_url.ends_with("/") {
         return base_url;
     }
     return base_url + "/";

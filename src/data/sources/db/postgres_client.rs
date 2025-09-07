@@ -211,3 +211,38 @@ pub(crate) fn find_tonight_program_by_channel_id(channel_id: String) -> Program 
     .join()
     .unwrap()
 }
+
+pub(crate) fn search_programs(query_string: String) -> Vec<Program> {
+    if !query_valid(query_string.clone()) {
+        println!("Invalid query string: {}", query_string);
+        return vec![];
+    }
+    std::thread::spawn(move || {
+        let mut programs = Vec::new();
+        let mut client = client();
+        let query = format!("%{}%", query_string);
+        let rows = client
+            .query(
+                "SELECT * FROM PROGRAMS WHERE TITLE ILIKE $1 OR SUBTITLE ILIKE $1 OR DESCRIPTION ILIKE $1",
+                &[&query],
+            )
+            .unwrap();
+        for row in rows {
+            let program = program_converter::row_to_entity(&row);
+            programs.push(program);
+        }
+        programs
+    })
+    .join()
+    .unwrap()
+}
+
+fn query_valid(query: String) -> bool {
+    // The only allowed characers a lower case letters (ASCII 97-122)
+    for c in query.chars() {
+        if !(c.is_ascii_lowercase() || c.is_ascii_whitespace()) {
+            return false;
+        }
+    }
+    true
+}

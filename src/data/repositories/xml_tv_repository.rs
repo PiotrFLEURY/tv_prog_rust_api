@@ -68,7 +68,7 @@ pub async fn init_xml_tv_data() {
                 program_converter::model_to_entity(p)
             })
             .collect::<Vec<Program>>();
-        if(unknown_fr_programs.len()>0) {
+        if unknown_fr_programs.len()>0 {
             println!("Found {} unknown FR channels", unknown_fr_programs.len());
             postgres_client::bulk_insert_programs(unknown_fr_programs);
         } else {
