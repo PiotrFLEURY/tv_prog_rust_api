@@ -38,5 +38,8 @@ pub async fn search_programs(Json(payload): Json<HashMap<String, String>>) -> Js
         Some(q) => q.clone(),
         None => return Json(vec![]),
     };
+    if query.trim().is_empty() {
+        return Json(vec![]);
+    }
     Json(program_repository::search_programs(query))
 }
