@@ -13,5 +13,5 @@ zip = "4.3.0"
 reqwest = "0.12.22"
 serde-xml-rs = "0.8.1"
 dotenv = "0.15.0"
-chrono = { version = "0.4.41", features = ["serde"] }
+chrono = { version = "0.4.42", features = ["serde"] }
 
