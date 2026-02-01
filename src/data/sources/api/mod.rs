@@ -1,4 +1,4 @@
-use crate::data::models::xmltv::XmlTv;
+use crate::data::models::XmlTv;
 use dotenv::var;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;

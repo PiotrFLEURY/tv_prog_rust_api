@@ -1,4 +1,4 @@
-use crate::data::models::xmltv::Program as ProgramModel;
+use crate::data::models::Program as ProgramModel;
 use crate::domain::entities::program::Program as ProgramEntity;
 use crate::domain::entities::rating::Rating;
 use chrono::DateTime;

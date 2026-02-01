@@ -1,12 +1,10 @@
 use crate::data::sources::db::postgres_client;
 use crate::domain::entities::program::Program;
-use crate::presentation::dtos::page::Page;
+use crate::presentation::dtos::Page;
 
 pub fn get_programs_by_channel_id(channel_id: String) -> Page<Program> {
     let programs = postgres_client::find_programs_by_channel_id(channel_id);
-    Page {
-        content: programs,
-    }
+    Page { content: programs }
 }
 
 pub(crate) fn get_current_program_by_channel_id(channel_id: String) -> Program {
