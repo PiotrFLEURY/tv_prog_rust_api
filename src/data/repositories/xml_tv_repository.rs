@@ -1,5 +1,5 @@
 use crate::data::converters::{channel_converter, program_converter};
-use crate::data::sources::api::xmltv_client;
+use crate::data::sources::api as xmltv_client;
 use crate::data::sources::db::postgres_client;
 use crate::domain::entities::channel::Channel;
 use crate::domain::entities::program::Program;
@@ -30,45 +30,49 @@ pub async fn init_xml_tv_data() {
         postgres_client::save_channel_packages(channels.clone(), "ALL".to_string());
         println!("Channels saved to the database.");
 
-
         let mut inserted_programs = 0;
         let program_chunks = programs.chunks(10000);
         for chunk in program_chunks {
             postgres_client::bulk_insert_programs(chunk.to_vec());
             inserted_programs += chunk.len();
-            println!("Inserted {} programs of {} into the database.", inserted_programs, programs.len());
+            println!(
+                "Inserted {} programs of {} into the database.",
+                inserted_programs,
+                programs.len()
+            );
         }
         println!("Programs saved to the database.");
 
-
-
-        let existing_channel_ids = channels.into_iter()
+        let existing_channel_ids = channels
+            .into_iter()
             .map(|c| c.channel_id.clone())
             .collect::<Vec<String>>();
 
         let fr = xmltv_client::fetch_xmltv_fr().await;
         let fr_channels: Vec<Channel> = channel_converter::models_to_entities(fr.channels);
         println!("Found {} FR channels", fr_channels.len());
-        let known_fr_channels = fr_channels.iter()
+        let known_fr_channels = fr_channels
+            .iter()
             .filter(|c| existing_channel_ids.contains(&c.channel_id))
             .cloned()
             .collect::<Vec<Channel>>();
         println!("Known FR channels: {}", known_fr_channels.len());
         postgres_client::save_channel_packages(known_fr_channels, "FR".to_string());
-        let unknown_fr_channels = fr_channels.iter()
+        let unknown_fr_channels = fr_channels
+            .iter()
             .filter(|c| !existing_channel_ids.contains(&c.channel_id))
             .cloned()
             .collect::<Vec<Channel>>();
         println!("Unknown FR channels: {}", unknown_fr_channels.len());
         postgres_client::save_channels(unknown_fr_channels.clone());
         postgres_client::save_channel_packages(unknown_fr_channels, "FR".to_string());
-        let unknown_fr_programs = fr.programs.into_iter()
+        let unknown_fr_programs = fr
+            .programs
+            .into_iter()
             .filter(|p| !existing_channel_ids.contains(&p.channel))
-            .map(|p| {
-                program_converter::model_to_entity(p)
-            })
+            .map(|p| program_converter::model_to_entity(p))
             .collect::<Vec<Program>>();
-        if unknown_fr_programs.len()>0 {
+        if unknown_fr_programs.len() > 0 {
             println!("Found {} unknown FR channels", unknown_fr_programs.len());
             postgres_client::bulk_insert_programs(unknown_fr_programs);
         } else {
@@ -79,7 +83,8 @@ pub async fn init_xml_tv_data() {
         let tnt = xmltv_client::fetch_xmltv_tnt().await;
         let tnt_channels: Vec<Channel> = channel_converter::models_to_entities(tnt.channels);
         println!("Found {} TNT channels", tnt_channels.len());
-        let known_tnt_channels = tnt_channels.iter()
+        let known_tnt_channels = tnt_channels
+            .iter()
             .filter(|c| existing_channel_ids.contains(&c.channel_id))
             .cloned()
             .collect::<Vec<Channel>>();
@@ -89,7 +94,10 @@ pub async fn init_xml_tv_data() {
 
         let elapsed = start_time.elapsed();
         println!("Time taken to init database: {:.2?}", elapsed);
-    }).join().unwrap().await;
+    })
+    .join()
+    .unwrap()
+    .await;
 
     println!("XML TV data initialization complete.");
 }

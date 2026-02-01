@@ -1,4 +1,4 @@
-use crate::data::models::xmltv::Channel as ChannelModel;
+use crate::data::models::Channel as ChannelModel;
 use crate::domain::entities::channel::Channel as ChannelEntity;
 
 pub fn model_to_entity(model: ChannelModel) -> ChannelEntity {
