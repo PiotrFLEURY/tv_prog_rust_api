@@ -100,3 +100,74 @@ fn from_naive_utc_and_offset(naive: chrono::NaiveDateTime) -> DateTime<chrono::F
     let offset = chrono::FixedOffset::east_opt(0).expect("Cannot create offset");
     DateTime::from_naive_utc_and_offset(naive, offset)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_model_to_entity() {
+        // GIVEN
+        let model = ProgramModel {
+            channel: "channel123".to_string(),
+            start: "20240101080000 +0000".to_string(),
+            stop: "20240101090000 +0000".to_string(),
+            title: "Test Program".to_string(),
+            sub_title: Some(vec!["Episode 1".to_string()]),
+            description: Some(crate::data::models::Description {
+                lang: "en".to_string(),
+                content: Some("This is a test program.".to_string()),
+            }),
+            categories: Some(vec![crate::data::models::Category {
+                lang: "en".to_string(),
+                content: Some("Drama".to_string()),
+            }]),
+            icon: Some(vec![crate::data::models::Icon {
+                src: "http://example.com/icon.png".to_string(),
+            }]),
+            episode_number: Some(crate::data::models::EpisodeNumber {
+                system: "EP_SYSTEM".to_string(),
+                content: Some("S01E01".to_string()),
+            }),
+            rating: Some(crate::data::models::Rating {
+                system: "MPAA".to_string(),
+                value: Some(crate::data::models::RatingValue {
+                    value: Some("PG-13".to_string()),
+                }),
+                icon: Some(crate::data::models::Icon {
+                    src: "http://example.com/rating_icon.png".to_string(),
+                }),
+            }),
+        };
+
+        // WHEN
+        let entity = model_to_entity(model);
+
+        // THEN
+        assert_eq!(&entity.channel_id, "channel123");
+        assert_eq!(entity.start_time.to_rfc3339(), "2024-01-01T08:00:00+00:00");
+        assert_eq!(entity.end_time.to_rfc3339(), "2024-01-01T09:00:00+00:00");
+        assert_eq!(&entity.title, "Test Program");
+        assert_eq!(entity.sub_title.as_ref().unwrap(), "Episode 1");
+        assert_eq!(
+            entity.description.as_ref().unwrap(),
+            "This is a test program."
+        );
+        assert_eq!(
+            entity.categories.as_ref().unwrap(),
+            &vec!["Drama".to_string()]
+        );
+        assert_eq!(
+            entity.icon_url.as_ref().unwrap(),
+            "http://example.com/icon.png"
+        );
+        assert_eq!(entity.episode_num.as_ref().unwrap(), "S01E01");
+        let rating = entity.rating.as_ref().unwrap();
+        assert_eq!(rating.system.as_ref().unwrap(), "MPAA");
+        assert_eq!(rating.value.as_ref().unwrap(), "PG-13");
+        assert_eq!(
+            rating.icon.as_ref().unwrap(),
+            "http://example.com/rating_icon.png"
+        );
+    }
+}
