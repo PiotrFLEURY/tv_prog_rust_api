@@ -8,10 +8,16 @@ pub async fn init_xml_tv_data() {
     // Initialize the database connection or any other setup if needed
     println!("Initializing xml tv data...");
 
-    std::thread::spawn(move || async {
+    let handle = std::thread::spawn(move || async {
         let start_time = std::time::Instant::now();
         println!("Fetching XML TV data from...");
         let result = xmltv_client::fetch_xmltv_all().await;
+        let result = match result {
+            Ok(res) => res,
+            Err(e) => {
+                panic!("Failed to fetch XML TV data: {}", e);
+            }
+        };
         println!("Found {} channels", result.channels.len());
         println!("Found {} programs", result.programs.len());
 
@@ -49,6 +55,12 @@ pub async fn init_xml_tv_data() {
             .collect::<Vec<String>>();
 
         let fr = xmltv_client::fetch_xmltv_fr().await;
+        let fr = match fr {
+            Ok(res) => res,
+            Err(e) => {
+                panic!("Failed to fetch FR XML TV data: {}", e);
+            }
+        };
         let fr_channels: Vec<Channel> = channel_converter::models_to_entities(fr.channels);
         println!("Found {} FR channels", fr_channels.len());
         let known_fr_channels = fr_channels
@@ -80,7 +92,12 @@ pub async fn init_xml_tv_data() {
         }
         println!("FR channels saved to the database.");
 
-        let tnt = xmltv_client::fetch_xmltv_tnt().await;
+        let tnt = match xmltv_client::fetch_xmltv_tnt().await {
+            Ok(res) => res,
+            Err(e) => {
+                panic!("Failed to fetch TNT XML TV data: {}", e);
+            }
+        };
         let tnt_channels: Vec<Channel> = channel_converter::models_to_entities(tnt.channels);
         println!("Found {} TNT channels", tnt_channels.len());
         let known_tnt_channels = tnt_channels
@@ -95,9 +112,12 @@ pub async fn init_xml_tv_data() {
         let elapsed = start_time.elapsed();
         println!("Time taken to init database: {:.2?}", elapsed);
     })
-    .join()
-    .unwrap()
-    .await;
+    .join();
 
-    println!("XML TV data initialization complete.");
+    if let Ok(handle) = handle {
+        handle.await;
+        println!("XML TV data initialization complete.");
+    } else {
+        eprintln!("Failed to initialize XML TV data.");
+    }
 }
