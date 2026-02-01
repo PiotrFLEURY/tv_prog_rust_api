@@ -80,14 +80,8 @@ pub fn row_to_entity(row: &postgres::Row) -> ProgramEntity {
     ProgramEntity {
         id: row.get(0),
         channel_id: row.get(1),
-        start_time: DateTime::from_naive_utc_and_offset(
-            row.get(2),
-            chrono::FixedOffset::east_opt(0).unwrap(),
-        ),
-        end_time: DateTime::from_naive_utc_and_offset(
-            row.get(3),
-            chrono::FixedOffset::east_opt(0).unwrap(),
-        ),
+        start_time: from_naive_utc_and_offset(row.get(2)),
+        end_time: from_naive_utc_and_offset(row.get(3)),
         title: row.get(4),
         sub_title: row.get(5),
         description: row.get(6),
@@ -100,4 +94,9 @@ pub fn row_to_entity(row: &postgres::Row) -> ProgramEntity {
             icon: row.get(12),
         }),
     }
+}
+
+fn from_naive_utc_and_offset(naive: chrono::NaiveDateTime) -> DateTime<chrono::FixedOffset> {
+    let offset = chrono::FixedOffset::east_opt(0).expect("Cannot create offset");
+    DateTime::from_naive_utc_and_offset(naive, offset)
 }

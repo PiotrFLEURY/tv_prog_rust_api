@@ -1,11 +1,17 @@
 use crate::data::converters::program_converter;
 use crate::data::sources::db::schema::SCHEMA_CREATION_QUERY;
-use crate::data::sources::db::sql_queries::{DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY, FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY, SELECT_ALL_CHANNELS_QUERY, SELECT_CHANNELS_QUERY};
+use crate::data::sources::db::sql_queries::{
+    DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY,
+    FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY,
+    FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY,
+    SELECT_ALL_CHANNELS_QUERY, SELECT_CHANNELS_QUERY,
+};
 use crate::domain::entities::channel::Channel;
 use crate::domain::entities::program::Program;
+use crate::domain::entities::rating::Rating;
 use chrono::Timelike;
 use dotenv::var;
-use postgres::{Client, NoTls};
+use postgres::{Client, Error, NoTls};
 
 ///
 /// Get a database connection
@@ -13,67 +19,77 @@ use postgres::{Client, NoTls};
 pub fn client() -> Client {
     let connection_string =
         var("CONNECTION_STRING").expect("DATABASE_URL must be set in the environment variables");
-    Client::connect(connection_string.as_str(), NoTls).unwrap()
+    Client::connect(connection_string.as_str(), NoTls).expect("Unable to connect to the database")
 }
 
-pub async fn init_schema() {
-    std::thread::spawn(move || {
+pub fn init_schema() {
+    thread_exec(move || -> Result<(), Error> {
         println!("Initializing database schema...");
         let mut client = client();
-        client.batch_execute(SCHEMA_CREATION_QUERY).unwrap();
-        println!("Database schema initialized.");
+        client.batch_execute(SCHEMA_CREATION_QUERY)?;
+        Ok(())
     })
-    .join()
-    .unwrap();
+    .expect("Unable to initialize database schema");
+    println!("Database schema initialized.");
+}
+
+fn thread_exec<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    std::thread::spawn(move || f())
+        .join()
+        .expect("Unable to execute query")
 }
 
 pub fn drop_channels() {
     println!("Dropping all channels from the database...");
-    std::thread::spawn(move || {
+    thread_exec(|| -> Result<(), Error> {
         let mut client = client();
-        client.execute(DELETE_PACKAGES_QUERY, &[]).unwrap();
-        client.execute(DELETE_CHANNELS_QUERY, &[]).unwrap();
+        client.execute(DELETE_PACKAGES_QUERY, &[])?;
+        client.execute(DELETE_CHANNELS_QUERY, &[])?;
+        Ok(())
     })
-    .join()
-    .unwrap();
+    .expect("Unable to drop channels from the database");
+    println!("All channels dropped from the database.");
 }
 
 pub fn save_channels(channels: Vec<Channel>) {
-    std::thread::spawn(move || {
+    thread_exec(move || -> Result<(), Error> {
         let mut client = client();
         for channel in &channels {
             println!("Inserting channel: {}", channel.channel_id);
-            client
-                .execute(
-                    INSERT_CHANNEL_QUERY,
-                    &[&channel.channel_id, &channel.name, &channel.icon_url],
-                )
-                .unwrap();
+            client.execute(
+                INSERT_CHANNEL_QUERY,
+                &[&channel.channel_id, &channel.name, &channel.icon_url],
+            )?;
         }
+        Ok(())
     })
-    .join()
-    .unwrap();
+    .expect("Unable to save channels to the database");
 }
 
 pub fn save_channel_packages(channels: Vec<Channel>, package: String) {
-    std::thread::spawn(move || {
+    thread_exec(move || -> Result<(), Error> {
         let mut client = client();
-        for channel in channels {
-            println!("Inserting channel package for channel_id: {}", channel.channel_id);
-            client
-                .execute(INSERT_PACKAGE_QUERY, &[&channel.channel_id, &package])
-                .unwrap();
+        for channel in &channels {
+            println!(
+                "Inserting channel package for channel_id: {}",
+                channel.channel_id
+            );
+            client.execute(INSERT_PACKAGE_QUERY, &[&channel.channel_id, &package])?;
         }
+        Ok(())
     })
-        .join()
-        .unwrap();
+    .expect("Unable to save channel packages to the database");
 }
 
-
-pub(crate) fn find_all_channels() -> Vec<Channel> {
-    std::thread::spawn(move || {
+pub fn find_all_channels() -> Vec<Channel> {
+    thread_exec(move || -> Result<Vec<Channel>, Error> {
         let mut channels = Vec::new();
-        for row in client().query(SELECT_ALL_CHANNELS_QUERY, &[]).unwrap() {
+        let select = client().query(SELECT_ALL_CHANNELS_QUERY, &[])?;
+        for row in select {
             let channel = Channel {
                 id: row.get(0),
                 channel_id: row.get(1),
@@ -82,16 +98,16 @@ pub(crate) fn find_all_channels() -> Vec<Channel> {
             };
             channels.push(channel);
         }
-        channels
+        Ok(channels)
     })
-        .join()
-        .unwrap()
+    .expect("Unable to find all channels")
 }
 
-pub(crate) fn find_channels_by_package(package: String) -> Vec<Channel> {
-    std::thread::spawn(move || {
+pub fn find_channels_by_package(package: String) -> Vec<Channel> {
+    thread_exec(move || -> Result<Vec<Channel>, Error> {
         let mut channels = Vec::new();
-        for row in client().query(SELECT_CHANNELS_QUERY, &[&package]).unwrap() {
+        let select = client().query(SELECT_CHANNELS_QUERY, &[&package])?;
+        for row in select {
             let channel = Channel {
                 id: row.get(0),
                 channel_id: row.get(1),
@@ -100,20 +116,19 @@ pub(crate) fn find_channels_by_package(package: String) -> Vec<Channel> {
             };
             channels.push(channel);
         }
-        channels
+        Ok(channels)
     })
-    .join()
-    .unwrap()
+    .expect("Unable to find channels by package")
 }
 
 pub fn drop_programs() {
     println!("Dropping all programs from the database...");
-    std::thread::spawn(move || {
+    thread_exec(move || -> Result<(), Error> {
         let mut client = client();
-        client.execute(DELETE_PROGRAMS_QUERY, &[]).unwrap();
+        client.execute(DELETE_PROGRAMS_QUERY, &[])?;
+        Ok(())
     })
-    .join()
-    .unwrap();
+    .expect("Unable to drop programs from the database");
 }
 
 pub fn bulk_insert_programs(programs: Vec<Program>) {
@@ -121,7 +136,7 @@ pub fn bulk_insert_programs(programs: Vec<Program>) {
         "Bulk inserting {} programs to the database...",
         programs.len()
     );
-    std::thread::spawn(move || {
+    thread_exec(move || -> Result<(), Error> {
         let mut client = client();
         let insert_query = "INSERT INTO PROGRAMS (\
 CHANNEL_ID, START_TIME, END_TIME, TITLE, SUBTITLE, DESCRIPTION, CATEGORIES, \
@@ -130,7 +145,11 @@ VALUES ";
         let values: Vec<String> = programs
             .iter()
             .map(|program| {
-                let rating = program.rating.as_ref().unwrap();
+                let rating = program.rating.as_ref().unwrap_or_else(|| &Rating {
+                    icon: None,
+                    system: None,
+                    value: None,
+                });
                 format!(
                     "('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')",
                     program.channel_id,
@@ -139,7 +158,14 @@ VALUES ";
                     escape_string(&program.title),
                     escape_string(program.sub_title.as_deref().unwrap_or("")),
                     escape_string(program.description.as_deref().unwrap_or("")),
-                    escape_string(program.categories.as_deref().unwrap_or(&vec![]).join(",").as_str()),
+                    escape_string(
+                        program
+                            .categories
+                            .as_deref()
+                            .unwrap_or(&vec![])
+                            .join(",")
+                            .as_str()
+                    ),
                     escape_string(program.icon_url.as_deref().unwrap_or("")),
                     escape_string(program.episode_num.as_deref().unwrap_or("")),
                     escape_string(rating.system.as_ref().unwrap_or(&"".to_string()).as_str()),
@@ -150,74 +176,77 @@ VALUES ";
             .collect();
         let full_query = format!("{} {}", insert_query, values.join(", "));
         //println!("Executing bulk insert query: {}", full_query);
-        client.batch_execute(&full_query).unwrap();
+        client.batch_execute(&full_query)?;
         println!("Bulk insert completed.");
+        Ok(())
     })
-    .join()
-    .unwrap();
+    .expect("Unable to bulk insert programs to the database");
 }
 
 pub fn escape_string(input: &str) -> String {
     input.replace('\'', "''")
 }
 
-pub(crate) fn find_programs_by_channel_id(channel_id: String) -> Vec<Program> {
-    std::thread::spawn(move || {
+pub fn find_programs_by_channel_id(channel_id: &str) -> Vec<Program> {
+    let channel = String::from(channel_id);
+    thread_exec(move || -> Result<Vec<Program>, Error> {
         let mut programs = Vec::new();
         let mut client = client();
-        let rows = client
-            .query(FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, &[&channel_id])
-            .unwrap();
+        let rows = client.query(FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, &[&channel])?;
         for row in rows {
             let program = program_converter::row_to_entity(&row);
             programs.push(program);
         }
-        programs
+        Ok(programs)
     })
-    .join()
-    .unwrap()
+    .expect(&format!(
+        "Cannot find programs for channel id {}",
+        channel_id
+    ))
 }
 
-pub(crate) fn find_current_program_by_channel_id(channel_id: String) -> Program {
-    std::thread::spawn(move || {
+pub fn find_current_program_by_channel_id(channel_id: &str) -> Program {
+    let channel = String::from(channel_id);
+    thread_exec(move || -> Result<Program, Error> {
         let mut client = client();
-        let row = client
-            .query_one(FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, &[&channel_id])
-            .unwrap();
+        let row = client.query_one(FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, &[&channel])?;
         let program = program_converter::row_to_entity(&row);
-        program
+        Ok(program)
     })
-    .join()
-    .unwrap()
+    .expect(&format!(
+        "Unable to find current program by channel id {}",
+        channel_id
+    ))
 }
 
-pub(crate) fn find_tonight_program_by_channel_id(channel_id: String) -> Program {
-    std::thread::spawn(move || {
+pub fn find_tonight_program_by_channel_id(channel_id: &str) -> Program {
+    let channel = String::from(channel_id);
+    thread_exec(move || -> Result<Program, Error> {
         let mut client = client();
         // Tonight 20:30
         let target_time = chrono::Local::now()
             .with_hour(20)
             .and_then(|dt| dt.with_minute(30))
             .unwrap_or_else(|| chrono::Local::now());
-        let row = client
-            .query_one(
-                FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY,
-                &[&channel_id, &target_time.naive_utc()],
-            )
-            .unwrap();
+        let row = client.query_one(
+            FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY,
+            &[&channel, &target_time.naive_utc()],
+        )?;
         let program = program_converter::row_to_entity(&row);
-        program
+        Ok(program)
     })
-    .join()
-    .unwrap()
+    .expect(&format!(
+        "Unable to find tonight program by channel id {}",
+        channel_id
+    ))
 }
 
-pub(crate) fn search_programs(query_string: String) -> Vec<Program> {
+pub fn search_programs(query_string: String) -> Vec<Program> {
     if !query_valid(query_string.clone()) {
         println!("Invalid query string: {}", query_string);
         return vec![];
     }
-    std::thread::spawn(move || {
+    thread_exec(move || -> Result<Vec<Program>, Error> {
         let mut programs = Vec::new();
         let mut client = client();
         let query = format!("%{}%", query_string);
@@ -226,15 +255,14 @@ pub(crate) fn search_programs(query_string: String) -> Vec<Program> {
                 "SELECT * FROM PROGRAMS WHERE TITLE ILIKE $1 OR SUBTITLE ILIKE $1 OR DESCRIPTION ILIKE $1",
                 &[&query],
             )
-            .unwrap();
+            ?;
         for row in rows {
             let program = program_converter::row_to_entity(&row);
             programs.push(program);
         }
-        programs
+        Ok(programs)
     })
-    .join()
-    .unwrap()
+    .expect("Unable to search programs by query string")
 }
 
 fn query_valid(query: String) -> bool {
