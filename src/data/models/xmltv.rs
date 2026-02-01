@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct XmlTv {
     #[serde(rename = "channel")]
-    pub channels : Vec<Channel>,
+    pub channels: Vec<Channel>,
     #[serde(rename = "programme")]
     pub programs: Vec<Program>,
 }
@@ -28,7 +28,7 @@ pub struct DisplayName {
 pub struct Program {
     pub title: String,
     #[serde(rename = "sub-title")]
-    pub sub_title: Option<String>,
+    pub sub_title: Option<Vec<String>>,
     #[serde(rename = "@start")]
     pub start: String,
     #[serde(rename = "@stop")]
@@ -36,11 +36,11 @@ pub struct Program {
     #[serde(rename = "@channel")]
     pub channel: String,
     #[serde(rename = "desc")]
-    pub description: Description,
+    pub description: Option<Description>,
     #[serde(rename = "category")]
-    pub categories: Vec<Category>,
+    pub categories: Option<Vec<Category>>,
     #[serde(rename = "icon")]
-    pub icon: Option<Icon>,
+    pub icon: Option<Vec<Icon>>,
     #[serde(rename = "episode-num")]
     pub episode_number: Option<EpisodeNumber>,
     #[serde(rename = "rating")]
