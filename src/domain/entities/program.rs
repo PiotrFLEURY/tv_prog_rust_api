@@ -1,6 +1,6 @@
+use crate::domain::entities::rating::Rating;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
-use crate::domain::entities::rating::Rating;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Program {
@@ -42,5 +42,4 @@ pub struct Program {
 
     /// The rating of the program
     pub rating: Option<Rating>,
-
 }
