@@ -1,13 +1,15 @@
 use crate::data::models::Program as ProgramModel;
+use crate::data::sources::db::entities::programs;
 use crate::domain::entities::program::Program as ProgramEntity;
 use crate::domain::entities::rating::Rating;
 use chrono::DateTime;
+use sea_orm::Set;
 
-pub fn models_to_entities(models: Vec<ProgramModel>) -> Vec<ProgramEntity> {
+pub fn models_to_entities(models: Vec<ProgramModel>) -> Result<Vec<ProgramEntity>, String> {
     models.into_iter().map(model_to_entity).collect()
 }
 
-pub fn model_to_entity(model: ProgramModel) -> ProgramEntity {
+pub fn model_to_entity(model: ProgramModel) -> Result<ProgramEntity, String> {
     let icon_url = if let Some(icon) = model.icon {
         icon.get(0).map_or(String::new(), |ic| ic.src.clone())
     } else {
@@ -47,13 +49,16 @@ pub fn model_to_entity(model: ProgramModel) -> ProgramEntity {
         String::new()
     };
 
-    ProgramEntity {
+    let start_time = DateTime::parse_from_str(model.start.as_str(), "%Y%m%d%H%M%S %z")
+        .map_err(|e| format!("Failed to parse start time '{}': {}", model.start, e))?;
+    let end_time = DateTime::parse_from_str(model.stop.as_str(), "%Y%m%d%H%M%S %z")
+        .map_err(|e| format!("Failed to parse end time '{}': {}", model.stop, e))?;
+
+    Ok(ProgramEntity {
         id: 0,
         channel_id: model.channel,
-        start_time: DateTime::parse_from_str(model.start.as_str(), "%Y%m%d%H%M%S %z")
-            .expect("Failed to parse start time"),
-        end_time: DateTime::parse_from_str(model.stop.as_str(), "%Y%m%d%H%M%S %z")
-            .expect("Failed to parse end time"),
+        start_time,
+        end_time,
         title: model.title,
         sub_title: model.sub_title.and_then(|subs| subs.get(0).cloned()), // Take the first subtitle if exists
         description: model.description.and_then(|desc| desc.content),
@@ -70,29 +75,58 @@ pub fn model_to_entity(model: ProgramModel) -> ProgramEntity {
             value: Option::from(rating_value.clone()),
             icon: Option::from(rating_icon.clone()),
         }),
+    })
+}
+
+///
+/// Convert a SeaORM program model loaded from the database into a domain entity
+///
+pub fn db_model_to_entity(model: programs::Model) -> ProgramEntity {
+    let categories = model
+        .categories
+        .map(|c| c.split(',').map(|s| s.trim().to_string()).collect());
+    ProgramEntity {
+        id: model.id,
+        channel_id: model.channel_id,
+        start_time: from_naive_utc_and_offset(model.start_time),
+        end_time: from_naive_utc_and_offset(model.end_time),
+        title: model.title,
+        sub_title: model.subtitle,
+        description: model.description,
+        categories,
+        icon_url: model.icon,
+        episode_num: model.episode_num,
+        rating: Some(Rating {
+            system: model.rating_system,
+            value: model.rating_value,
+            icon: model.rating_icon,
+        }),
     }
 }
 
-pub fn row_to_entity(row: &postgres::Row) -> ProgramEntity {
-    let row_categories: Option<String> = row.get(7);
-    let categories: Option<Vec<String>> =
-        row_categories.map(|c| c.split(',').map(|s| s.trim().to_string()).collect());
-    ProgramEntity {
-        id: row.get(0),
-        channel_id: row.get(1),
-        start_time: from_naive_utc_and_offset(row.get(2)),
-        end_time: from_naive_utc_and_offset(row.get(3)),
-        title: row.get(4),
-        sub_title: row.get(5),
-        description: row.get(6),
-        categories,
-        icon_url: row.get(8),
-        episode_num: row.get(9),
-        rating: Some(Rating {
-            system: row.get(10),
-            value: row.get(11),
-            icon: row.get(12),
-        }),
+///
+/// Convert a domain entity into a SeaORM active model ready to be inserted
+///
+pub fn entity_to_active_model(program: &ProgramEntity) -> programs::ActiveModel {
+    let rating = program.rating.clone().unwrap_or(Rating {
+        system: None,
+        value: None,
+        icon: None,
+    });
+    programs::ActiveModel {
+        channel_id: Set(program.channel_id.clone()),
+        start_time: Set(program.start_time.naive_utc()),
+        end_time: Set(program.end_time.naive_utc()),
+        title: Set(program.title.clone()),
+        subtitle: Set(program.sub_title.clone()),
+        description: Set(program.description.clone()),
+        categories: Set(program.categories.as_ref().map(|c| c.join(","))),
+        icon: Set(program.icon_url.clone()),
+        episode_num: Set(program.episode_num.clone()),
+        rating_system: Set(rating.system),
+        rating_value: Set(rating.value),
+        rating_icon: Set(rating.icon),
+        ..Default::default()
     }
 }
 
@@ -141,7 +175,7 @@ mod tests {
         };
 
         // WHEN
-        let entity = model_to_entity(model);
+        let entity = model_to_entity(model).unwrap();
 
         // THEN
         assert_eq!(&entity.channel_id, "channel123");

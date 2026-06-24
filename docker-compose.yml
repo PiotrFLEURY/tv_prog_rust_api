@@ -22,7 +22,8 @@ services:
     environment:
       TZ: Europe/Paris
       CONNECTION_STRING: "postgres://postgres:postgres@db:5432/postgres"
-      XMLTV_BASE_URL: http://localxmltv/
+      #XMLTV_BASE_URL: http://localxmltv/
+      XMLTV_BASE_URL: https://xmltvfr.fr/xmltv/
     ports:
       - "3000:3000"
 

@@ -10,9 +10,21 @@ use crate::presentation::routes;
 async fn main() {
     dotenv::dotenv().ok();
 
-    postgres_client::init_schema();
+    match postgres_client::init_schema().await {
+        Ok(()) => {}
+        Err(e) => {
+            eprintln!("Unable to initialize database schema: {}", e);
+            std::process::exit(1);
+        }
+    }
 
-    xml_tv_repository::init_xml_tv_data().await;
+    match xml_tv_repository::init_xml_tv_data().await {
+        Ok(()) => {}
+        Err(e) => {
+            eprintln!("Unable to initialize xml tv data: {}", e);
+            std::process::exit(1);
+        }
+    }
 
     let router = routes::create_router();
 

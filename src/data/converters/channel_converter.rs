@@ -1,4 +1,5 @@
 use crate::data::models::Channel as ChannelModel;
+use crate::data::sources::db::entities::channels;
 use crate::domain::entities::channel::Channel as ChannelEntity;
 
 pub fn model_to_entity(model: ChannelModel) -> ChannelEntity {
@@ -12,6 +13,18 @@ pub fn model_to_entity(model: ChannelModel) -> ChannelEntity {
 
 pub fn models_to_entities(models: Vec<ChannelModel>) -> Vec<ChannelEntity> {
     models.into_iter().map(model_to_entity).collect()
+}
+
+///
+/// Convert a SeaORM channel model loaded from the database into a domain entity
+///
+pub fn db_model_to_entity(model: channels::Model) -> ChannelEntity {
+    ChannelEntity {
+        id: model.id,
+        channel_id: model.channel_id,
+        name: model.display_name,
+        icon_url: model.icon.unwrap_or_default(),
+    }
 }
 
 #[cfg(test)]

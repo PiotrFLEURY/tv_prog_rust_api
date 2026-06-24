@@ -1,276 +1,249 @@
-use crate::data::converters::program_converter;
+use crate::data::converters::{channel_converter, program_converter};
+use crate::data::sources::db::connection;
+use crate::data::sources::db::entities::{channel_packages, channels, programs};
 use crate::data::sources::db::schema::SCHEMA_CREATION_QUERY;
-use crate::data::sources::db::sql_queries::{
-    DELETE_CHANNELS_QUERY, DELETE_PACKAGES_QUERY, DELETE_PROGRAMS_QUERY,
-    FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, FIND_PROGRAMS_BY_CHANNEL_ID_QUERY,
-    FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY, INSERT_CHANNEL_QUERY, INSERT_PACKAGE_QUERY,
-    SELECT_ALL_CHANNELS_QUERY, SELECT_CHANNELS_QUERY,
-};
 use crate::domain::entities::channel::Channel;
 use crate::domain::entities::program::Program;
-use crate::domain::entities::rating::Rating;
-use chrono::Timelike;
-use dotenv::var;
-use postgres::{Client, Error, NoTls};
+use chrono::{Duration, Timelike, Utc};
+use sea_orm::sea_query::Expr;
+use sea_orm::sea_query::extension::postgres::PgExpr;
+use sea_orm::{
+    ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+};
 
-///
-/// Get a database connection
-///
-pub fn client() -> Client {
-    let connection_string =
-        var("CONNECTION_STRING").expect("DATABASE_URL must be set in the environment variables");
-    Client::connect(connection_string.as_str(), NoTls).expect("Unable to connect to the database")
-}
+const INSERT_CHUNK_SIZE: usize = 1000;
 
-pub fn init_schema() {
-    thread_exec(move || -> Result<(), Error> {
-        println!("Initializing database schema...");
-        let mut client = client();
-        client.batch_execute(SCHEMA_CREATION_QUERY)?;
-        Ok(())
-    })
-    .expect("Unable to initialize database schema");
+pub async fn init_schema() -> Result<(), String> {
+    println!("Initializing database schema...");
+    let db = connection::get().await?;
+    db.execute_unprepared(SCHEMA_CREATION_QUERY)
+        .await
+        .map_err(|e| e.to_string())?;
     println!("Database schema initialized.");
+    Ok(())
 }
 
-fn thread_exec<F, R>(f: F) -> R
-where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-{
-    std::thread::spawn(move || f())
-        .join()
-        .expect("Unable to execute query")
-}
-
-pub fn drop_channels() {
+pub async fn drop_channels() -> Result<(), String> {
     println!("Dropping all channels from the database...");
-    thread_exec(|| -> Result<(), Error> {
-        let mut client = client();
-        client.execute(DELETE_PACKAGES_QUERY, &[])?;
-        client.execute(DELETE_CHANNELS_QUERY, &[])?;
-        Ok(())
-    })
-    .expect("Unable to drop channels from the database");
+    let db = connection::get().await?;
+    channel_packages::Entity::delete_many()
+        .exec(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    channels::Entity::delete_many()
+        .exec(db)
+        .await
+        .map_err(|e| e.to_string())?;
     println!("All channels dropped from the database.");
+    Ok(())
 }
 
-pub fn save_channels(channels: Vec<Channel>) {
-    thread_exec(move || -> Result<(), Error> {
-        let mut client = client();
-        for channel in &channels {
+pub async fn save_channels(channels_to_save: Vec<Channel>) -> Result<(), String> {
+    if channels_to_save.is_empty() {
+        return Ok(());
+    }
+    let db = connection::get().await?;
+    let models: Vec<channels::ActiveModel> = channels_to_save
+        .iter()
+        .map(|channel| {
             println!("Inserting channel: {}", channel.channel_id);
-            client.execute(
-                INSERT_CHANNEL_QUERY,
-                &[&channel.channel_id, &channel.name, &channel.icon_url],
-            )?;
-        }
-        Ok(())
-    })
-    .expect("Unable to save channels to the database");
+            channels::ActiveModel {
+                channel_id: Set(channel.channel_id.clone()),
+                display_name: Set(channel.name.clone()),
+                icon: Set(Some(channel.icon_url.clone())),
+                ..Default::default()
+            }
+        })
+        .collect();
+    for chunk in models.chunks(INSERT_CHUNK_SIZE) {
+        channels::Entity::insert_many(chunk.to_vec())
+            .exec(db)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
-pub fn save_channel_packages(channels: Vec<Channel>, package: String) {
-    thread_exec(move || -> Result<(), Error> {
-        let mut client = client();
-        for channel in &channels {
+pub async fn save_channel_packages(
+    channels_to_save: Vec<Channel>,
+    package: String,
+) -> Result<(), String> {
+    if channels_to_save.is_empty() {
+        return Ok(());
+    }
+    let db = connection::get().await?;
+    let models: Vec<channel_packages::ActiveModel> = channels_to_save
+        .iter()
+        .map(|channel| {
             println!(
                 "Inserting channel package for channel_id: {}",
                 channel.channel_id
             );
-            client.execute(INSERT_PACKAGE_QUERY, &[&channel.channel_id, &package])?;
-        }
-        Ok(())
-    })
-    .expect("Unable to save channel packages to the database");
+            channel_packages::ActiveModel {
+                channel_id: Set(channel.channel_id.clone()),
+                package_id: Set(package.clone()),
+                ..Default::default()
+            }
+        })
+        .collect();
+    for chunk in models.chunks(INSERT_CHUNK_SIZE) {
+        channel_packages::Entity::insert_many(chunk.to_vec())
+            .exec(db)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
-pub fn find_all_channels() -> Vec<Channel> {
-    thread_exec(move || -> Result<Vec<Channel>, Error> {
-        let mut channels = Vec::new();
-        let select = client().query(SELECT_ALL_CHANNELS_QUERY, &[])?;
-        for row in select {
-            let channel = Channel {
-                id: row.get(0),
-                channel_id: row.get(1),
-                name: row.get(2),
-                icon_url: row.get(3),
-            };
-            channels.push(channel);
-        }
-        Ok(channels)
-    })
-    .expect("Unable to find all channels")
+pub async fn find_all_channels() -> Result<Vec<Channel>, String> {
+    let db = connection::get().await?;
+    let models = channels::Entity::find()
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(models
+        .into_iter()
+        .map(channel_converter::db_model_to_entity)
+        .collect())
 }
 
-pub fn find_channels_by_package(package: String) -> Vec<Channel> {
-    thread_exec(move || -> Result<Vec<Channel>, Error> {
-        let mut channels = Vec::new();
-        let select = client().query(SELECT_CHANNELS_QUERY, &[&package])?;
-        for row in select {
-            let channel = Channel {
-                id: row.get(0),
-                channel_id: row.get(1),
-                name: row.get(2),
-                icon_url: row.get(3),
-            };
-            channels.push(channel);
-        }
-        Ok(channels)
-    })
-    .expect("Unable to find channels by package")
+pub async fn find_channels_by_package(package: String) -> Result<Vec<Channel>, String> {
+    let db = connection::get().await?;
+    let channel_ids: Vec<String> = channel_packages::Entity::find()
+        .filter(channel_packages::Column::PackageId.eq(package))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|package| package.channel_id)
+        .collect();
+    let models = channels::Entity::find()
+        .filter(channels::Column::ChannelId.is_in(channel_ids))
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(models
+        .into_iter()
+        .map(channel_converter::db_model_to_entity)
+        .collect())
 }
 
-pub fn drop_programs() {
+pub async fn drop_programs() -> Result<(), String> {
     println!("Dropping all programs from the database...");
-    thread_exec(move || -> Result<(), Error> {
-        let mut client = client();
-        client.execute(DELETE_PROGRAMS_QUERY, &[])?;
-        Ok(())
-    })
-    .expect("Unable to drop programs from the database");
+    let db = connection::get().await?;
+    programs::Entity::delete_many()
+        .exec(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
-pub fn bulk_insert_programs(programs: Vec<Program>) {
+pub async fn bulk_insert_programs(programs_to_save: Vec<Program>) -> Result<(), String> {
+    if programs_to_save.is_empty() {
+        return Ok(());
+    }
     println!(
         "Bulk inserting {} programs to the database...",
-        programs.len()
+        programs_to_save.len()
     );
-    thread_exec(move || -> Result<(), Error> {
-        let mut client = client();
-        let insert_query = "INSERT INTO PROGRAMS (\
-CHANNEL_ID, START_TIME, END_TIME, TITLE, SUBTITLE, DESCRIPTION, CATEGORIES, \
-ICON, EPISODE_NUM, RATING_SYSTEM, RATING_VALUE, RATING_ICON) \
-VALUES ";
-        let values: Vec<String> = programs
-            .iter()
-            .map(|program| {
-                let rating = program.rating.as_ref().unwrap_or_else(|| &Rating {
-                    icon: None,
-                    system: None,
-                    value: None,
-                });
-                format!(
-                    "('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')",
-                    program.channel_id,
-                    program.start_time.naive_utc(),
-                    program.end_time.naive_utc(),
-                    escape_string(&program.title),
-                    escape_string(program.sub_title.as_deref().unwrap_or("")),
-                    escape_string(program.description.as_deref().unwrap_or("")),
-                    escape_string(
-                        program
-                            .categories
-                            .as_deref()
-                            .unwrap_or(&vec![])
-                            .join(",")
-                            .as_str()
-                    ),
-                    escape_string(program.icon_url.as_deref().unwrap_or("")),
-                    escape_string(program.episode_num.as_deref().unwrap_or("")),
-                    escape_string(rating.system.as_ref().unwrap_or(&"".to_string()).as_str()),
-                    escape_string(rating.value.as_ref().unwrap_or(&"".to_string()).as_str()),
-                    escape_string(rating.icon.as_ref().unwrap_or(&"".to_string()).as_str())
-                )
-            })
-            .collect();
-        let full_query = format!("{} {}", insert_query, values.join(", "));
-        //println!("Executing bulk insert query: {}", full_query);
-        client.batch_execute(&full_query)?;
-        println!("Bulk insert completed.");
-        Ok(())
-    })
-    .expect("Unable to bulk insert programs to the database");
+    let db = connection::get().await?;
+    let models: Vec<programs::ActiveModel> = programs_to_save
+        .iter()
+        .map(program_converter::entity_to_active_model)
+        .collect();
+    for chunk in models.chunks(INSERT_CHUNK_SIZE) {
+        programs::Entity::insert_many(chunk.to_vec())
+            .exec(db)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    println!("Bulk insert completed.");
+    Ok(())
 }
 
-pub fn escape_string(input: &str) -> String {
-    input.replace('\'', "''")
+pub async fn find_programs_by_channel_id(channel_id: &str) -> Result<Vec<Program>, String> {
+    let db = connection::get().await?;
+    let now = Utc::now().naive_utc();
+    let models = programs::Entity::find()
+        .filter(programs::Column::ChannelId.eq(channel_id))
+        .filter(programs::Column::StartTime.gte(now))
+        .order_by_asc(programs::Column::StartTime)
+        .limit(100)
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(models
+        .into_iter()
+        .map(program_converter::db_model_to_entity)
+        .collect())
 }
 
-pub fn find_programs_by_channel_id(channel_id: &str) -> Vec<Program> {
-    let channel = String::from(channel_id);
-    thread_exec(move || -> Result<Vec<Program>, Error> {
-        let mut programs = Vec::new();
-        let mut client = client();
-        let rows = client.query(FIND_PROGRAMS_BY_CHANNEL_ID_QUERY, &[&channel])?;
-        for row in rows {
-            let program = program_converter::row_to_entity(&row);
-            programs.push(program);
-        }
-        Ok(programs)
-    })
-    .expect(&format!(
-        "Cannot find programs for channel id {}",
-        channel_id
-    ))
+pub async fn find_current_program_by_channel_id(
+    channel_id: &str,
+) -> Result<Option<Program>, String> {
+    let db = connection::get().await?;
+    let now = Utc::now().naive_utc();
+    let model = programs::Entity::find()
+        .filter(programs::Column::ChannelId.eq(channel_id))
+        .filter(programs::Column::StartTime.lte(now))
+        .filter(programs::Column::EndTime.gte(now))
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(model.map(program_converter::db_model_to_entity))
 }
 
-pub fn find_current_program_by_channel_id(channel_id: &str) -> Program {
-    let channel = String::from(channel_id);
-    thread_exec(move || -> Result<Program, Error> {
-        let mut client = client();
-        let row = client.query_one(FIND_CURRENT_PROGRAM_BY_CHANNEL_ID_QUERY, &[&channel])?;
-        let program = program_converter::row_to_entity(&row);
-        Ok(program)
-    })
-    .expect(&format!(
-        "Unable to find current program by channel id {}",
-        channel_id
-    ))
+pub async fn find_tonight_program_by_channel_id(
+    channel_id: &str,
+) -> Result<Option<Program>, String> {
+    let db = connection::get().await?;
+    // Tonight 20:30
+    let target_time = chrono::Local::now()
+        .with_hour(20)
+        .and_then(|dt| dt.with_minute(30))
+        .unwrap_or_else(chrono::Local::now)
+        .naive_utc();
+    let candidates = programs::Entity::find()
+        .filter(programs::Column::ChannelId.eq(channel_id))
+        .filter(programs::Column::StartTime.gte(target_time))
+        .order_by_asc(programs::Column::StartTime)
+        .limit(50)
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    // duration is at least 30 minutes
+    let program = candidates
+        .into_iter()
+        .find(|model| model.end_time - model.start_time >= Duration::minutes(30));
+    Ok(program.map(program_converter::db_model_to_entity))
 }
 
-pub fn find_tonight_program_by_channel_id(channel_id: &str) -> Program {
-    let channel = String::from(channel_id);
-    thread_exec(move || -> Result<Program, Error> {
-        let mut client = client();
-        // Tonight 20:30
-        let target_time = chrono::Local::now()
-            .with_hour(20)
-            .and_then(|dt| dt.with_minute(30))
-            .unwrap_or_else(|| chrono::Local::now());
-        let row = client.query_one(
-            FIND_TONIGHT_PROGRAM_BY_CHANNEL_ID_QUERY,
-            &[&channel, &target_time.naive_utc()],
-        )?;
-        let program = program_converter::row_to_entity(&row);
-        Ok(program)
-    })
-    .expect(&format!(
-        "Unable to find tonight program by channel id {}",
-        channel_id
-    ))
-}
-
-pub fn search_programs(query_string: String) -> Vec<Program> {
-    if !query_valid(query_string.clone()) {
+pub async fn search_programs(query_string: String) -> Result<Vec<Program>, String> {
+    if !query_valid(&query_string) {
         println!("Invalid query string: {}", query_string);
-        return vec![];
+        return Ok(vec![]);
     }
-    thread_exec(move || -> Result<Vec<Program>, Error> {
-        let mut programs = Vec::new();
-        let mut client = client();
-        let query = format!("%{}%", query_string);
-        let rows = client
-            .query(
-                "SELECT * FROM PROGRAMS WHERE TITLE ILIKE $1 OR SUBTITLE ILIKE $1 OR DESCRIPTION ILIKE $1",
-                &[&query],
-            )
-            ?;
-        for row in rows {
-            let program = program_converter::row_to_entity(&row);
-            programs.push(program);
-        }
-        Ok(programs)
-    })
-    .expect("Unable to search programs by query string")
+    let db = connection::get().await?;
+    let pattern = format!("%{}%", query_string);
+    let models = programs::Entity::find()
+        .filter(
+            Condition::any()
+                .add(Expr::col(programs::Column::Title).ilike(pattern.clone()))
+                .add(Expr::col(programs::Column::Subtitle).ilike(pattern.clone()))
+                .add(Expr::col(programs::Column::Description).ilike(pattern)),
+        )
+        .all(db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(models
+        .into_iter()
+        .map(program_converter::db_model_to_entity)
+        .collect())
 }
 
-fn query_valid(query: String) -> bool {
+fn query_valid(query: &str) -> bool {
     // The only allowed characers a lower case letters (ASCII 97-122)
-    for c in query.chars() {
-        if !(c.is_ascii_lowercase() || c.is_ascii_whitespace()) {
-            return false;
-        }
-    }
-    true
+    query
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_whitespace())
 }
