@@ -149,11 +149,11 @@ mod tests {
             title: "Test Program".to_string(),
             sub_title: Some(vec!["Episode 1".to_string()]),
             description: Some(crate::data::models::Description {
-                lang: "en".to_string(),
+                lang: Some("en".to_string()),
                 content: Some("This is a test program.".to_string()),
             }),
             categories: Some(vec![crate::data::models::Category {
-                lang: "en".to_string(),
+                lang: Some("en".to_string()),
                 content: Some("Drama".to_string()),
             }]),
             icon: Some(vec![crate::data::models::Icon {

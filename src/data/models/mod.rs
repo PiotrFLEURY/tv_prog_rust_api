@@ -50,7 +50,7 @@ pub struct Program {
 #[derive(Serialize, Deserialize)]
 pub struct Description {
     #[serde(rename = "@lang")]
-    pub lang: String,
+    pub lang: Option<String>,
     #[serde(rename = "#text")]
     pub content: Option<String>,
 }
@@ -58,7 +58,7 @@ pub struct Description {
 #[derive(Serialize, Deserialize)]
 pub struct Category {
     #[serde(rename = "@lang")]
-    pub lang: String,
+    pub lang: Option<String>,
     #[serde(rename = "#text")]
     pub content: Option<String>,
 }

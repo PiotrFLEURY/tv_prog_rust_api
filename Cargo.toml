@@ -1,6 +1,6 @@
 [package]
 name = "tv_prog_rust_api"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 
 [dependencies]
@@ -13,5 +13,9 @@ reqwest = "0.12.22"
 serde-xml-rs = "0.8.1"
 dotenv = "0.15.0"
 chrono = { version = "0.4.41", features = ["serde"] }
-sea-orm = { version = "1.1.20", features = ["sqlx-postgres", "runtime-tokio-native-tls", "macros", "with-chrono"] }
-
+sea-orm = { version = "1.1.20", features = [
+    "sqlx-postgres",
+    "runtime-tokio-native-tls",
+    "macros",
+    "with-chrono",
+] }
