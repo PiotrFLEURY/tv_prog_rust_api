@@ -46,7 +46,7 @@ pub fn model_to_entity(model: ProgramModel) -> Result<ProgramEntity, String> {
     let rating_system = if let Some(system) = model.rating.as_ref().map(|r| r.system.clone()) {
         system
     } else {
-        String::new()
+        Some(String::new())
     };
 
     let start_time = DateTime::parse_from_str(model.start.as_str(), "%Y%m%d%H%M%S %z")
@@ -160,11 +160,11 @@ mod tests {
                 src: "http://example.com/icon.png".to_string(),
             }]),
             episode_number: Some(crate::data::models::EpisodeNumber {
-                system: "EP_SYSTEM".to_string(),
+                system: Some("EP_SYSTEM".to_string()),
                 content: Some("S01E01".to_string()),
             }),
             rating: Some(crate::data::models::Rating {
-                system: "MPAA".to_string(),
+                system: Some("MPAA".to_string()),
                 value: Some(crate::data::models::RatingValue {
                     value: Some("PG-13".to_string()),
                 }),

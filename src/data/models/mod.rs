@@ -72,7 +72,7 @@ pub struct Icon {
 #[derive(Serialize, Deserialize)]
 pub struct EpisodeNumber {
     #[serde(rename = "@system")]
-    pub system: String,
+    pub system: Option<String>,
     #[serde(rename = "#text")]
     pub content: Option<String>,
 }
@@ -80,7 +80,7 @@ pub struct EpisodeNumber {
 #[derive(Serialize, Deserialize)]
 pub struct Rating {
     #[serde(rename = "@system")]
-    pub system: String,
+    pub system: Option<String>,
     #[serde(rename = "value")]
     pub value: Option<RatingValue>,
     #[serde(rename = "icon")]
